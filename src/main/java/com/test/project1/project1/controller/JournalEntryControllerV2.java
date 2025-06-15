@@ -1,9 +1,12 @@
 package com.test.project1.project1.controller;
 
 import com.test.project1.project1.entity.JournalEntry;
+import com.test.project1.project1.entity.User;
 import com.test.project1.project1.service.JournalEntryService;
+import com.test.project1.project1.service.UserService;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,20 +21,24 @@ public class JournalEntryControllerV2 {
     @Autowired
     private JournalEntryService journalEntryService;
 
-    @GetMapping
-    public ResponseEntity<?> getJournalEntries(){     //http://localhost:8080/journal  Method:GET
-        List<JournalEntry> all = journalEntryService.getAll();
+    @Autowired
+    private UserService userService;
+
+    @GetMapping("{userName}")
+    public ResponseEntity<?> getAllJournalEntriesOfUser(@PathVariable String userName){
+        User user = userService.findByUserName(userName);
+        List<JournalEntry> all = user.getJournalEntries();
         if(all != null && !all.isEmpty()){
             return new ResponseEntity<>(all,HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
-    @PostMapping
-    public ResponseEntity<JournalEntry> createEntry(@RequestBody JournalEntry entry){//http://localhost:8080/journal   Method:POST
+    @PostMapping("/{userName}")
+    public ResponseEntity<JournalEntry> createEntry(@RequestBody JournalEntry entry, @PathVariable String userName){//http://localhost:8080/journal   Method:POST
         try{
-            entry.setData(LocalDateTime.now());
-            journalEntryService.saveEntry(entry);
+
+            journalEntryService.saveEntry(entry,userName);
             return new ResponseEntity<>(entry,HttpStatus.CREATED);
         }catch (Exception e){
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
@@ -40,7 +47,7 @@ public class JournalEntryControllerV2 {
     }
 
     @GetMapping("/id/{myId}")
-    public ResponseEntity<JournalEntry> getJournalEntryById(@PathVariable ObjectId myId){           //http://localhost:8080/journal/id/your_id  Method : GET
+    public ResponseEntity<JournalEntry> getJournalEntryById(@PathVariable ObjectId myId){
         Optional<JournalEntry> journalEntry =  journalEntryService.getById(myId);
         if(journalEntry.isPresent()){
             return new ResponseEntity<>(journalEntry.get(),HttpStatus.OK);
@@ -48,14 +55,18 @@ public class JournalEntryControllerV2 {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
-    @DeleteMapping("/id/{myId}")
-    public ResponseEntity<?> deleteJournalEntryById(@PathVariable ObjectId myId){             //http://localhost:8080/journal/id/your_id   Method : DELETE
-        journalEntryService.deleteById(myId);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-    }
+    @DeleteMapping("/id/{userName}/{myId}")
+    public ResponseEntity<?> deleteJournalEntryById(@PathVariable ObjectId myId,@PathVariable String userName){
+            journalEntryService.deleteById(myId,userName);
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        }
 
-    @PutMapping("/id/{id}")
-    public ResponseEntity<?> updateJournalEntryById(@PathVariable ObjectId id,@RequestBody JournalEntry myEntry){          //http://localhost:8080/journal/id/your_id   Method: PUT
+    @PutMapping("/id/{userName}/{id}")
+    public ResponseEntity<JournalEntry> updateJournalEntryById(
+            @PathVariable ObjectId id,
+            @RequestBody JournalEntry myEntry,
+            @PathVariable String userName){
+
         JournalEntry oldEntry = journalEntryService.getById(id).orElse(null);
         if(oldEntry != null){
             oldEntry.setTitle(myEntry.getTitle() != null && !myEntry.getTitle().equals("")? myEntry.getTitle() : oldEntry.getTitle());
@@ -67,4 +78,6 @@ public class JournalEntryControllerV2 {
 
 
     }
-}
+
+    }
+
